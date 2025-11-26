@@ -45,7 +45,6 @@ from pyngrok import ngrok
 ngrok.set_auth_token('360SG2WL3ONUjKARDdvIOc2P2SJ_zWc71SHs1R7oVAmvMTZb')
 
 # Commented out IPython magic to ensure Python compatibility.
-%%writefile app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
