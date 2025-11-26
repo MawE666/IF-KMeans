@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Anomaly Detection (IF + KMeans)", layout="wide")
 st.title("Deteksi Anomali Trafik Jaringan — Isolation Forest & K-Means")
-st.markdown("Aplikasi demo untuk skripsi: Penerapan Isolation Forest & K-Means pada trafik jaringan PT. XYZ")
+st.markdown("Penerapan Isolation Forest & K-Means pada trafik jaringan")
 
 # ----------------------
 # Sidebar: pengaturan
