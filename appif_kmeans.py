@@ -80,7 +80,7 @@ if upload_file is not None:
          st.stop()
  
 # Cek isi file untuk memastikan bukan file rusak
-    content = upload_file.read().decode(errors="ignore")
+     content = upload_file.read().decode(errors="ignore")
      upload_file.seek(0)
  
      if content.strip() == "":
