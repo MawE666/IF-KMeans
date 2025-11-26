@@ -46,189 +46,185 @@ from pyngrok import ngrok
 ngrok.set_auth_token('360SG2WL3ONUjKARDdvIOc2P2SJ_zWc71SHs1R7oVAmvMTZb')
 
 # Commented out IPython magic to ensure Python compatibility.
-# %%writefile app.py
-# import streamlit as st
-# import pandas as pd
-# import numpy as np
-# from sklearn.ensemble import IsolationForest
-# from sklearn.cluster import KMeans
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.decomposition import PCA
-# import matplotlib.pyplot as plt
-# import io
-# 
-# st.set_page_config(page_title='Anomaly Detection (IsolationForest + KMeans)', layout='wide')
-# 
-# st.title('Deteksi Anomali Trafik Jaringan - IsolationForest dan KMeans')
-# st.markdown('Contoh Aplikasi Skripsi: Penerapan Isolation Forest & K-Means pada trafik jaringan PT.XYZ')
-# 
-# # Sidebar - Pengaturan
-# st.sidebar.header('Pengaturan Model')
-# contamination = st.sidebar.slider('contamination (Isolation Forest)', min_value=0.001, max_value=0.2, value=0.05, step=0.001)
-# n_clusters = st.sidebar.slider('Jumlah cluster (K-Means)', min_value=2, max_value=8, value=3, step=1)
-# random_state = st.sidebar.number_input('Random State', value=42, step=1)
-# 
-# st.sidebar.markdown('___')
-# st.sidebar.markdown('Upload dataset .CSV atau gunalan dataset Dummy.')
-# 
-# # Upload file atau gunakan dataset dummy
-# upload_file = st.file_uploader("Upload fiel CSV (kolom numerik diperlukan)", type=["csv"])
-# 
-# df = None
-# 
-# # Jika upload file
-# if upload_file is not None:
-# 
-#     # Cek apakah file kosong
-#     if upload_file.size == 0:
-#         st.error("File CSV kosong!")
-#         st.stop()
-# 
-#     # Cek isi file untuk memastikan bukan file rusak
-#     content = upload_file.read().decode(errors="ignore")
-#     upload_file.seek(0)
-# 
-#     if content.strip() == "":
-#         st.error("File CSV tidak memiliki isi.")
-#         st.stop()
-# 
-#     # Baca CSV dengan aman
-#     try:
-#         df = pd.read_csv(upload_file)
-#     except Exception:
-#         try:
-#             upload_file.seek(0)
-#             df = pd.read_csv(upload_file, encoding="latin1")
-#         except Exception as e:
-#             st.error(f"Gagal membaca file CSV: {e}")
-#             st.stop()
-# 
-#     st.success(f"File berhasil diupload - shape: {df.shape}.")
-# 
-# else:
-#     # Tidak ada upload, coba dataset dummy
-#     if st.button("Gunakan dataset dummy"):
-#         df = pd.read_csv("trafik_dummy.csv")
-#         st.success(f"Menggunakan dataset dummy - shape: {df.shape}.")
-#     else:
-#         st.info("Belum ada dataset. Upload CSV atau klik dataset dummy.")
-#         st.stop()
-# 
-# # Ambil kolom numerik
-# X = df.select_dtypes(include=['int64', 'float64'])
-# 
-# # Pilih fitur numerik otomatis
-# numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-# if not numeric_cols:
-#     st.error("Tidak ada fitur numerik dalam dataset.")
-#     st.stop()
-# 
-# st.markdown('**Fitur numerik yang digunakan:** ' + ', '.join(numeric_cols))
-# 
-# # Ambil hanya kolom numerik
-# X = df[numeric_cols].copy()
-# 
-# # Perbaiki nilai bermasalah (inf, -inf, nilai terlalu besar, NaN)
-# X = X.replace([np.inf, -np.inf], np.nan)
-# 
-# # Jika masih ada nilai terlalu besar (overflow)
-# X = X.applymap(lambda x: np.nan if isinstance(x, (int, float)) and (abs(x) > 1e308) else x)
-# 
-# # Drop baris yang ada NaN
-# X = X.dropna()
-# 
-# # Sinkronkan df dengan X (agar baris yang invalid ikut dihapus)
-# df = df.loc[X.index].reset_index(drop=True)
-# X = X.reset_index(drop=True)
-# 
-# # Pastikan X tidak kosong
-# if X.shape[0] == 0:
-#     st.error("Semua data invalid setelah membersihkan NaN/inf. Periksa dataset Anda.")
-#     st.stop()
-# 
-# # Scaling
-# scaler = StandardScaler()
-# X_scaled = scaler.fit_transform(X)
-# 
-# # Isolation Forest
-# iso = IsolationForest(contamination=contamination, random_state=int(random_state))
-# iso_labels = iso.fit_predict(X_scaled) # -1 anomaly, 1 nomar
-# iso_scores = iso.decision_function(X_scaled) # higher -> lebih dari normal
-# 
-# # Map labels to 0/1 (1 = anomaly)
-# df['anomaly_if'] = np.where(iso_labels == -1, 1, 0)
-# df['anomaly_score_if'] = -iso_scores # inverted so higher = more anomalous
-# 
-# # Clustering K-Means
-# kmeans = KMeans(n_clusters=int(n_clusters), random_state=int(random_state))
-# clusters = kmeans.fit_predict(X_scaled)
-# df['cluster'] = clusters
-# 
-# # Simple method to pick outliner clusters: cluster size threshold
-# cluster_counts = df['cluster'].value_counts().sort_index()
-# small_cluster_threshold = st.sidebar.slider('Ambang cluster kecil (persentase)', 0.1, 10.0, 1.0, step=0.1)
-# threshold_count = int(len(df) * (small_cluster_threshold / 100))
-# small_clusters = cluster_counts[cluster_counts <= threshold_count].index.tolist()
-# df['anomaly_kmeans_cluster'] = df['cluster'].apply(lambda c: 1 if c in small_clusters else 0)
-# 
-# # Kolom final: gabungan (flag juka salah satu detektor melapor)
-# df['anomaly_any'] = df[['anomaly_if', 'anomaly_kmeans_cluster']].max(axis=1)
-# 
-# # Rinkasan
-# st.subheader('Rinkasan hasil deteksi')
-# col1, col2, col3 = st.columns(3)
-# col1.metric('Total baris', len(df))
-# col2.metric('Jumlah flagged (IF)', int(df['anomaly_if'].sum()))
-# col3.metric('Jumlah flagged (K-Means cluster kecil)', int(df['anomaly_kmeans_cluster'].sum()))
-# st.markdown('**Total flagged (gabungan)**: {}'.format(int(df['anomaly_any'].sum())))
-# 
-# # Visualisasi: PCA 2D
-# st.subheader("Visualisasi (PCA 2D)")
-# pca = PCA(n_components=2, random_state=int(random_state))
-# proj = pca.fit_transform(X_scaled)
-# df['pca1'] = proj[:, 0]
-# df['pca2'] = proj[:, 1]
-# 
-# fig, ax = plt.subplots(figsize=(8, 5))
-# 
-# # scatter by cluster
-# for c in sorted(df['cluster'].unique()):
-#   sel = df[df['cluster'] == c]
-#   ax.scatter(sel['pca1'], sel['pca2'], label=f'Cluster {c}', alpha=0.6, s=20)
-# 
-# # highlight animalies (any)
-# sel_anom = df[df['anomaly_any'] == 1]
-# if len(sel_anom) > 0:
-#     ax.scatter(sel_anom['pca1'], sel_anom['pca2'], facecolors='none', edgecolors='k', s=80, label='Flagged Anomaly (any)')
-# 
-# ax.set_xlabel('PCA 1')
-# ax.set_ylabel('PCA 2')
-# ax.legend(markerscale=1)
-# ax.grid(True)
-# st.pyplot(fig)
-# 
-# # Menampilkan table anomali
-# st.subheader('Tabel Data yang Dideteksi Anomali')
-# show_limit = st.number_input('Max row ditampilkan', min_value=5, max_value=1000, value=50, step=5)
-# anom_df = df[df['anomaly_any'] == 1].sort_values('anomaly_score_if', ascending=False)
-# st.write(f'Menampilkan {min(len(anom_df), show_limit)} dari {len(anom_df)} anomali')
-# 
-# # Download hasil
-# csv = df.to_csv(index=False)
-# st.download_button('Download hasil deteksi', data=csv, file_name='deteksi_anomaly.csv')
-# 
-# 
-# 
-# 
-# # Note:
-# st.markdown('''
-# **Catatan & Penjelasan**:
-# - `anomaly_if`: hasil Isolation Forest (1 = anomaly).
-# - `anomaly_score_if`: skor Isolation Forest (lebih tinggi = anomali lebih besar).
-# - `cluster`: hasil clustering K-Means.
-# - `anomaly_kmeans_cluster`: pendeteksian cluster kecil sebagai indikasi outlier (atur ambang di sidebar).
-# - `anomaly_any`: gabungan hasil deteksi Isolation Forest dan K-Means.
-# ''')
+%%writefile app.py
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import IsolationForest
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import io
+ 
+st.set_page_config(page_title='Anomaly Detection (IsolationForest + KMeans)', layout='wide')
+st.title('Deteksi Anomali Trafik Jaringan - IsolationForest dan KMeans')
+st.markdown('Contoh Aplikasi Skripsi: Penerapan Isolation Forest & K-Means pada trafik jaringan PT.XYZ')
+
+# Sidebar - Pengaturan
+st.sidebar.header('Pengaturan Model')
+contamination = st.sidebar.slider('contamination (Isolation Forest)', min_value=0.001, max_value=0.2, value=0.05, step=0.001)
+n_clusters = st.sidebar.slider('Jumlah cluster (K-Means)', min_value=2, max_value=8, value=3, step=1)
+random_state = st.sidebar.number_input('Random State', value=42, step=1)
+st.sidebar.markdown('___')
+st.sidebar.markdown('Upload dataset .CSV atau gunalan dataset Dummy.')
+ 
+# Upload file atau gunakan dataset dummy
+upload_file = st.file_uploader("Upload fiel CSV (kolom numerik diperlukan)", type=["csv"]) 
+df = None
+ 
+# Jika upload file
+if upload_file is not None:
+ 
+# Cek apakah file kosong
+     if upload_file.size == 0:
+         st.error("File CSV kosong!")
+         st.stop()
+ 
+# Cek isi file untuk memastikan bukan file rusak
+    content = upload_file.read().decode(errors="ignore")
+     upload_file.seek(0)
+ 
+     if content.strip() == "":
+         st.error("File CSV tidak memiliki isi.")
+         st.stop()
+ 
+# Baca CSV dengan aman 
+    try:
+         df = pd.read_csv(upload_file)
+    except Exception:
+        try:
+             upload_file.seek(0)
+             df = pd.read_csv(upload_file, encoding="latin1")
+         except Exception as e:
+             st.error(f"Gagal membaca file CSV: {e}")
+             st.stop()
+ 
+     st.success(f"File berhasil diupload - shape: {df.shape}.")
+ 
+ else:
+     # Tidak ada upload, coba dataset dummy
+     if st.button("Gunakan dataset dummy"):
+         df = pd.read_csv("trafik_dummy.csv")
+         st.success(f"Menggunakan dataset dummy - shape: {df.shape}.")
+     else:
+         st.info("Belum ada dataset. Upload CSV atau klik dataset dummy.")
+         st.stop()
+ 
+# Ambil kolom numerik
+X = df.select_dtypes(include=['int64', 'float64'])
+ 
+# Pilih fitur numerik otomatis
+numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+if not numeric_cols:
+     st.error("Tidak ada fitur numerik dalam dataset.")
+     st.stop()
+ 
+ st.markdown('**Fitur numerik yang digunakan:** ' + ', '.join(numeric_cols))
+ 
+# Ambil hanya kolom numerik
+X = df[numeric_cols].copy()
+ 
+# Perbaiki nilai bermasalah (inf, -inf, nilai terlalu besar, NaN)
+ X = X.replace([np.inf, -np.inf], np.nan)
+ 
+# Jika masih ada nilai terlalu besar (overflow)
+X = X.applymap(lambda x: np.nan if isinstance(x, (int, float)) and (abs(x) > 1e308) else x)
+ 
+# Drop baris yang ada NaN
+X = X.dropna()
+ 
+# Sinkronkan df dengan X (agar baris yang invalid ikut dihapus)
+df = df.loc[X.index].reset_index(drop=True)
+X = X.reset_index(drop=True)
+ 
+# Pastikan X tidak kosong
+if X.shape[0] == 0:
+     st.error("Semua data invalid setelah membersihkan NaN/inf. Periksa dataset Anda.")
+     st.stop()
+ 
+# Scaling
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+ 
+# Isolation Forest
+iso = IsolationForest(contamination=contamination, random_state=int(random_state))
+iso_labels = iso.fit_predict(X_scaled) # -1 anomaly, 1 nomar
+iso_scores = iso.decision_function(X_scaled) # higher -> lebih dari normal
+ 
+# Map labels to 0/1 (1 = anomaly)
+df['anomaly_if'] = np.where(iso_labels == -1, 1, 0)
+df['anomaly_score_if'] = -iso_scores # inverted so higher = more anomalous
+ 
+# Clustering K-Means
+kmeans = KMeans(n_clusters=int(n_clusters), random_state=int(random_state))
+clusters = kmeans.fit_predict(X_scaled)
+df['cluster'] = clusters
+ 
+# Simple method to pick outliner clusters: cluster size threshold
+cluster_counts = df['cluster'].value_counts().sort_index()
+small_cluster_threshold = st.sidebar.slider('Ambang cluster kecil (persentase)', 0.1, 10.0, 1.0, step=0.1)
+threshold_count = int(len(df) * (small_cluster_threshold / 100))
+small_clusters = cluster_counts[cluster_counts <= threshold_count].index.tolist()
+df['anomaly_kmeans_cluster'] = df['cluster'].apply(lambda c: 1 if c in small_clusters else 0)
+ 
+# Kolom final: gabungan (flag juka salah satu detektor melapor)
+df['anomaly_any'] = df[['anomaly_if', 'anomaly_kmeans_cluster']].max(axis=1)
+ 
+# Rinkasan
+st.subheader('Rinkasan hasil deteksi')
+col1, col2, col3 = st.columns(3)
+col1.metric('Total baris', len(df))
+col2.metric('Jumlah flagged (IF)', int(df['anomaly_if'].sum()))
+col3.metric('Jumlah flagged (K-Means cluster kecil)', int(df['anomaly_kmeans_cluster'].sum()))
+st.markdown('**Total flagged (gabungan)**: {}'.format(int(df['anomaly_any'].sum())))
+ 
+# Visualisasi: PCA 2D
+st.subheader("Visualisasi (PCA 2D)")
+pca = PCA(n_components=2, random_state=int(random_state))
+proj = pca.fit_transform(X_scaled)
+df['pca1'] = proj[:, 0]
+df['pca2'] = proj[:, 1]
+ 
+fig, ax = plt.subplots(figsize=(8, 5))
+ 
+# scatter by cluster
+for c in sorted(df['cluster'].unique()):
+   sel = df[df['cluster'] == c]
+   ax.scatter(sel['pca1'], sel['pca2'], label=f'Cluster {c}', alpha=0.6, s=20)
+ 
+highlight animalies (any)
+sel_anom = df[df['anomaly_any'] == 1]
+if len(sel_anom) > 0:
+     ax.scatter(sel_anom['pca1'], sel_anom['pca2'], facecolors='none', edgecolors='k', s=80, label='Flagged Anomaly (any)')
+ 
+ax.set_xlabel('PCA 1')
+ax.set_ylabel('PCA 2')
+ax.legend(markerscale=1)
+ax.grid(True)
+st.pyplot(fig)
+ 
+# Menampilkan table anomali
+st.subheader('Tabel Data yang Dideteksi Anomali')
+show_limit = st.number_input('Max row ditampilkan', min_value=5, max_value=1000, value=50, step=5)
+anom_df = df[df['anomaly_any'] == 1].sort_values('anomaly_score_if', ascending=False)
+st.write(f'Menampilkan {min(len(anom_df), show_limit)} dari {len(anom_df)} anomali')
+ 
+# Download hasil
+csv = df.to_csv(index=False)
+st.download_button('Download hasil deteksi', data=csv, file_name='deteksi_anomaly.csv')
+
+
+
+# Note:
+st.markdown('''
+**Catatan & Penjelasan**:
+- `anomaly_if`: hasil Isolation Forest (1 = anomaly).
+- `anomaly_score_if`: skor Isolation Forest (lebih tinggi = anomali lebih besar).
+- `cluster`: hasil clustering K-Means.
+- `anomaly_kmeans_cluster`: pendeteksian cluster kecil sebagai indikasi outlier (atur ambang di sidebar).
+- `anomaly_any`: gabungan hasil deteksi Isolation Forest dan K-Means.
+''')
 
 # Jalankan Stramlit (background).
 import os
